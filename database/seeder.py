@@ -98,18 +98,32 @@ def seed_data():
     pg_conn.commit()
     print("PostgreSQL Seeding Complete.")
 
-    print(f"Generating {NUM_GENE_RECORDS} Genomic Records in MongoDB...")
+    print(f"Generating {NUM_GENE_RECORDS} Genomic Records in MongoDB & SQL Metadata...")
     gene_docs = []
     
     # Generate realistic-looking data using numpy for scores
-    scores = np.random.normal(loc=50, scale=15, size=NUM_GENE_RECORDS)
-    gc_contents = np.random.uniform(30, 70, size=NUM_GENE_RECORDS)
+    # Varied distributions for analytics demo
+    scores = np.concatenate([
+        np.random.normal(loc=30, scale=10, size=int(NUM_GENE_RECORDS * 0.3)),
+        np.random.normal(loc=70, scale=15, size=int(NUM_GENE_RECORDS * 0.7))
+    ])
+    np.random.shuffle(scores)
     
+    gc_contents = np.random.uniform(20, 80, size=NUM_GENE_RECORDS)
+    
+    # Batch SQL inserts for performance
+    sql_gene_buffer = []
+
     for i in range(NUM_GENE_RECORDS):
         experiment_id = random.choice(experiments)
         gene_symbol = f"GENE-{random.randint(1000, 9999)}"
-        sequence = "".join(random.choices("ACGT", k=50)) # Short sequence for demo
+        sequence_len = random.randint(100, 2000)
+        sequence = "".join(random.choices("ACGT", k=50)) # Short snippet
+        chrom = f"chr{random.randint(1, 23)}"
+        if random.random() < 0.05: chrom = "chrX"
+        if random.random() < 0.05: chrom = "chrY"
         
+        # 1. Prepare Mongo Document
         doc = {
             "experiment_id": experiment_id,
             "gene_symbol": gene_symbol,
@@ -117,14 +131,25 @@ def seed_data():
             "expression_score": float(scores[i]),
             "gc_content": float(gc_contents[i]),
             "metadata": {
-                "biotype": random.choice(["protein_coding", "lncRNA", "miRNA"]),
-                "chromosome": str(random.randint(1, 23))
+                "biotype": random.choice(["protein_coding", "lncRNA", "miRNA", "pseudogene"]),
+                "chromosome": chrom
             },
             "timestamp": fake.iso8601()
         }
         gene_docs.append(doc)
 
+        # 2. Prepare SQL Metadata Tuple
+        sql_gene_buffer.append((gene_symbol, experiment_id, chrom, sequence_len))
+
+    # Bulk Insert Mongo
     gene_collection.insert_many(gene_docs)
+    
+    # Bulk Insert SQL
+    print("Populating SQL 'gene_metadata' table...")
+    args_str = ','.join(pg_cursor.mogrify("(%s,%s,%s,%s)", x).decode('utf-8') for x in sql_gene_buffer)
+    pg_cursor.execute("INSERT INTO gene_metadata (gene_symbol, experiment_id, chromosome, sequence_length) VALUES " + args_str) 
+
+    pg_conn.commit()
     
     # Create index for query performance
     gene_collection.create_index([("expression_score", -1)])

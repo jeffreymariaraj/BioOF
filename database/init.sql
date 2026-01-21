@@ -29,6 +29,18 @@ CREATE TABLE IF NOT EXISTS experiments (
     nosql_collection_ref VARCHAR(50) DEFAULT 'gene_data' 
 );
 
+-- For OLAP Analytics Upgrade (SQL Aggregation Demo)
+-- Stores a subset of gene features (e.g., from an upstream ETL process)
+-- Intentionally duplicated/structured to allow efficient GROUP BY queries.
+CREATE TABLE IF NOT EXISTS gene_metadata (
+    id SERIAL PRIMARY KEY,
+    gene_symbol VARCHAR(50) NOT NULL,
+    experiment_id INTEGER REFERENCES experiments(id) ON DELETE CASCADE,
+    chromosome VARCHAR(10) NOT NULL,
+    sequence_length INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for performance
 CREATE INDEX idx_projects_owner ON projects(owner_id);
 CREATE INDEX idx_experiments_project ON experiments(project_id);

@@ -82,3 +82,44 @@ async def hybrid_query(
             "match_count": len(final_results)
         }
     }
+
+from app.database import get_db, get_mongo_db, get_redis
+from app.services.cache_service import CacheService
+from bson import ObjectId
+
+@router.get("/gene/{gene_id}")
+async def get_gene_detail(
+    gene_id: str,
+    mongo_db = Depends(get_mongo_db),
+    redis = Depends(get_redis)
+):
+    """
+    Demonstrates 3-Tier Architecture (Cache-Aside via Redis).
+    1. Check Redis (Cache Hit).
+    2. If Miss, Check Mongo -> Store in Redis -> Return.
+    """
+    cache_service = CacheService(redis)
+    
+    # 1. Cache Check
+    cached_gene = await cache_service.get_gene(gene_id)
+    if cached_gene:
+        cached_gene["source_badge"] = "REDIS_CACHE"
+        return cached_gene
+
+    # 2. Database Fetch
+    try:
+        gene = await mongo_db.gene_data.find_one({"_id": ObjectId(gene_id)})
+    except:
+        raise HTTPException(status_code=400, detail="Invalid ID format")
+
+    if not gene:
+        raise HTTPException(status_code=404, detail="Gene not found")
+
+    # Format
+    gene["_id"] = str(gene["_id"])
+    gene["source_badge"] = "MONGO_DB"
+
+    # 3. Cache Store (Async)
+    await cache_service.set_gene(gene_id, gene)
+
+    return gene
