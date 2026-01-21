@@ -53,3 +53,13 @@ CREATE INDEX idx_experiments_project ON experiments(project_id);
 -- High-dimensional index for optimized similarity search (HNSW)
 -- Uses Cosine Distance (vector_cosine_ops)
 CREATE INDEX idx_gene_embedding ON gene_metadata USING hnsw (embedding vector_cosine_ops);
+
+-- Schema Evolution Registry
+-- Tracks dynamic fields added to the Hybrid Schema (NoSQL Documents)
+CREATE TABLE IF NOT EXISTS schema_evolution_log (
+    id SERIAL PRIMARY KEY,
+    attribute_name VARCHAR(100) UNIQUE NOT NULL,
+    data_type VARCHAR(50) DEFAULT 'string',
+    default_value VARCHAR(100) DEFAULT 'N/A',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

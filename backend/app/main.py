@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import hybrid, analytics, recommendation
+from app.routers import hybrid, analytics, recommendation, evolution
 
 app = FastAPI(
     title="BioOF Hybrid Query Engine",
     description="Optimization-Centric Database System MVP",
-    version="0.3.0"
+    version="0.4.0"
 )
 
 # CORS Configuration
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(hybrid.router, prefix="/api", tags=["Hybrid Queries"])
 app.include_router(analytics.router, prefix="/api", tags=["OLAP Analytics"])
 app.include_router(recommendation.router, prefix="/api", tags=["Vector Search"])
+app.include_router(evolution.router, prefix="/api", tags=["Schema Evolution"])
 
 @app.get("/")
 def read_root():

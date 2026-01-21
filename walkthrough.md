@@ -70,3 +70,26 @@ The project is a containerized hybrid database system featuring:
 - **Action**: Click the "Find Similar" button on any gene row.
 - **Result**: A modal appears showing 5 recommended genes.
 - **Tech**: Uses `pgvector` HNSW index on 3D vectors `[Expression, GC, Complexity]`.
+
+### 7. Dynamic Schema Evolution (New)
+1.  **Navigate to Evolution Lab**: Click the "Evolution Lab" tab (last tab, with pulse effect).
+2.  **View Architecture**: Click the "Info" (i) icon in the top right header to see the "Hybrid Schema Evolution Architecture" modal.
+3.  **Evolve Schema**:
+    *   **New Attribute Name**: Enter `protein_stability`
+    *   **Default Value**: Enter `Pending Analysis`
+    *   Click "Evolve Schema Now".
+    *   *Observation*: You should see a success toast: "Schema Successfully Evolved! Added 'protein_stability' to 10,000+ documents."
+4.  **Verify Propagation**:
+    *   Switch back to the **Hybrid Query** tab.
+    *   Run a search (e.g., Project ID `1`).
+    *   *Observation*: The table now has a new column **protein_stability** with the value `Pending Analysis` for every row.
+5.  **Status Propagation Rule**:
+    *   Go back to **Evolution Lab**.
+    *   **New Attribute Name**: Enter `Status`
+    *   **Default Value**: Enter `Draft`
+    *   Click "Evolve Schema Now".
+    *   *Observation*: Backend logic intercepts "Status" and sets it to "Validated" (as per business rule).
+    *   Check **Hybrid Query** tab: New column **Status** shows `Validated` for all rows.
+
+## Next Steps
+- Implement "Data Enrichment Pipelines" to backfill real data for these new fields.

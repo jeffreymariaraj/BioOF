@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Search, Database, Dna, LayoutDashboard, BarChart2, SearchCode } from 'lucide-react'
+import { Search, Database, Dna, LayoutDashboard, BarChart2, SearchCode, Zap, Info } from 'lucide-react'
 import clsx from 'clsx'
 import { AnalyticsDashboard } from './components/AnalyticsDashboard'
 import { GeneDetailModal } from './components/GeneDetailModal'
 import { SimilarityModal } from './components/SimilarityModal'
+import { EvolutionLab } from './components/EvolutionLab' // New
+import { EvolutionArchitectureModal } from './components/EvolutionArchitectureModal' // New
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -24,6 +26,7 @@ interface GeneRecord {
     experiment_name: string;
     source_tag: string;
     gc_content: number;
+    [key: string]: any; // Allow dynamic fields
 }
 
 interface QueryResult {
@@ -35,8 +38,14 @@ interface QueryResult {
     };
 }
 
+// Dynamic Schema Type
+interface SchemaAttribute {
+    name: string;
+    default: string;
+}
+
 function App() {
-    const [activeTab, setActiveTab] = useState<'hybrid' | 'analytics'>('hybrid')
+    const [activeTab, setActiveTab] = useState<'hybrid' | 'analytics' | 'evolution'>('hybrid')
 
     // Search State
     const [projectId, setProjectId] = useState<string>('1')
@@ -54,7 +63,26 @@ function App() {
     const [simLoading, setSimLoading] = useState(false)
     const [simRecommendations, setSimRecommendations] = useState<any[]>([])
     const [targetGeneSim, setTargetGeneSim] = useState<string>('')
+    // Evolution State
+    const [dynamicSchema, setDynamicSchema] = useState<SchemaAttribute[]>([])
+    const [evoInfoModalOpen, setEvoInfoModalOpen] = useState(false)
 
+    // Fetch Active Schema on Mount and after Evolution
+    const fetchSchema = async () => {
+        try {
+            const res = await axios.get(`${API_URL}/api/schema/active`);
+            setDynamicSchema(res.data);
+            if (data && projectId) {
+                handleSearch();
+            }
+        } catch (err) {
+            console.error("Failed to fetch schema", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchSchema();
+    }, []);
     const handleSimClick = async (e: React.MouseEvent, geneId: string, geneSymbol: string) => {
         e.stopPropagation()
         setTargetGeneSim(geneSymbol)
@@ -105,7 +133,15 @@ function App() {
     return (
         <div className="min-h-screen bg-bio-dark text-slate-100 p-8 pb-20">
             {/* Header */}
-            <header className="mb-8 text-center">
+            <header className="mb-8 text-center relative">
+                <button
+                    onClick={() => setEvoInfoModalOpen(true)}
+                    className="absolute right-4 top-2 p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-pink-400 transition-colors"
+                    title="View System Architecture"
+                >
+                    <Info size={20} />
+                </button>
+
                 <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 mb-2">
                     BioOF: Optimization-Centric Database System
                 </h1>
@@ -134,11 +170,24 @@ function App() {
                     <BarChart2 size={18} />
                     OLAP Analytics
                 </button>
+                <button
+                    onClick={() => setActiveTab('evolution')}
+                    className={clsx(
+                        "flex-1 py-2 rounded-lg font-bold flex items-center justify-center gap-2 transition-all relative overflow-hidden",
+                        activeTab === 'evolution' ? "bg-pink-500/20 text-pink-400 shadow-sm ring-1 ring-pink-500/50" : "text-slate-500 hover:text-slate-300"
+                    )}
+                >
+                    {activeTab !== 'evolution' && <div className="absolute top-0 right-0 p-1"><div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></div></div>}
+                    <Zap size={18} />
+                    Evolution Lab
+                </button>
             </div>
 
             <div className="max-w-6xl mx-auto">
                 {activeTab === 'analytics' ? (
                     <AnalyticsDashboard />
+                ) : activeTab === 'evolution' ? (
+                    <EvolutionLab onEvolutionComplete={fetchSchema} />
                 ) : (
                     /* Hybrid Query View */
                     <>
@@ -222,6 +271,12 @@ function App() {
                                                     <th className="p-4">Experiment (Joined)</th>
                                                     <th className="p-4">Expression Score</th>
                                                     <th className="p-4">GC Content</th>
+                                                    {/* Dynamic Columns Rendered Here */}
+                                                    {dynamicSchema.map((attr) => (
+                                                        <th key={attr.name} className="p-4 text-pink-400">
+                                                            {attr.name}
+                                                        </th>
+                                                    ))}
                                                     <th className="p-4">Sequence Snippet</th>
                                                     <th className="p-4 text-center">Actions</th>
                                                 </tr>
@@ -252,6 +307,13 @@ function App() {
                                                             </div>
                                                         </td>
                                                         <td className="p-4 font-mono text-slate-400">{gene.gc_content.toFixed(1)}%</td>
+
+                                                        {/* Dynamic Attributes Data */}
+                                                        {dynamicSchema.map((attr) => (
+                                                            <td key={attr.name} className="p-4 font-mono text-pink-300">
+                                                                {gene[attr.name] || '-'}
+                                                            </td>
+                                                        ))}
                                                         <td className="p-4 font-mono text-xs text-slate-500 truncate max-w-[200px]">
                                                             {gene.sequence_snippet}
                                                         </td>
@@ -291,6 +353,11 @@ function App() {
                 targetGene={targetGeneSim}
                 recommendations={simRecommendations}
                 isLoading={simLoading}
+            />
+
+            <EvolutionArchitectureModal
+                isOpen={evoInfoModalOpen}
+                onClose={() => setEvoInfoModalOpen(false)}
             />
         </div>
     )
