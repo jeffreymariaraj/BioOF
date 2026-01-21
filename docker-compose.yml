@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Database 1: PostgreSQL (Structured Metadata)
+  postgres:
+    image: postgres:15-alpine
+    container_name: bioof_postgres
+    environment:
+      POSTGRES_USER: biouser
+      POSTGRES_PASSWORD: biopassword
+      POSTGRES_DB: bioof_db
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biouser -d bioof_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Database 2: MongoDB (Unstructured Genomic Data)
+  mongo:
+    image: mongo:6.0
+    container_name: bioof_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: mongoadmin
+      MONGO_INITDB_ROOT_PASSWORD: mongopassword
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend: FastAPI Query Engine
+  backend:
+    build: ./backend
+    container_name: bioof_backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://biouser:biopassword@postgres:5432/bioof_db
+      - MONGO_URI=mongodb://mongoadmin:mongopassword@mongo:27017
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+
+  # Frontend: React Dashboard
+  frontend:
+    build: ./frontend
+    container_name: bioof_frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+  # Seeder: Runs once to populate DBs
+  seeder:
+    build: ./backend
+    container_name: bioof_seeder
+    command: python /app/seeder.py
+    volumes:
+      - ./backend:/app
+      - ./database/seeder.py:/app/seeder.py
+    environment:
+      - DATABASE_URL=postgresql://biouser:biopassword@postgres:5432/bioof_db
+      - MONGO_URI=mongodb://mongoadmin:mongopassword@mongo:27017
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    restart: no
+
+volumes:
+  postgres_data:
+  mongo_data:
