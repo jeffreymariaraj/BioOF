@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Search, Database, Dna, LayoutDashboard, BarChart2 } from 'lucide-react'
+import { Search, Database, Dna, LayoutDashboard, BarChart2, SearchCode } from 'lucide-react'
 import clsx from 'clsx'
 import { AnalyticsDashboard } from './components/AnalyticsDashboard'
 import { GeneDetailModal } from './components/GeneDetailModal'
+import { SimilarityModal } from './components/SimilarityModal'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -47,6 +48,29 @@ function App() {
     // Modal State
     const [selectedGene, setSelectedGene] = useState<any>(null)
     const [modalOpen, setModalOpen] = useState(false)
+
+    // Similarity Search State
+    const [simModalOpen, setSimModalOpen] = useState(false)
+    const [simLoading, setSimLoading] = useState(false)
+    const [simRecommendations, setSimRecommendations] = useState<any[]>([])
+    const [targetGeneSim, setTargetGeneSim] = useState<string>('')
+
+    const handleSimClick = async (e: React.MouseEvent, geneId: string, geneSymbol: string) => {
+        e.stopPropagation()
+        setTargetGeneSim(geneSymbol)
+        setSimModalOpen(true)
+        setSimLoading(true)
+        setSimRecommendations([])
+
+        try {
+            const res = await axios.get(`${API_URL}/api/genes/recommend/${geneId}`)
+            setSimRecommendations(res.data.recommendations)
+        } catch (err) {
+            console.error("Vector Search Failed", err)
+        } finally {
+            setSimLoading(false)
+        }
+    }
 
     const handleSearch = async () => {
         setLoading(true)
@@ -199,6 +223,7 @@ function App() {
                                                     <th className="p-4">Expression Score</th>
                                                     <th className="p-4">GC Content</th>
                                                     <th className="p-4">Sequence Snippet</th>
+                                                    <th className="p-4 text-center">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-700/50">
@@ -230,6 +255,16 @@ function App() {
                                                         <td className="p-4 font-mono text-xs text-slate-500 truncate max-w-[200px]">
                                                             {gene.sequence_snippet}
                                                         </td>
+                                                        <td className="p-4 text-center">
+                                                            <button
+                                                                onClick={(e) => handleSimClick(e, gene._id, gene.gene_symbol)}
+                                                                className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all opacity-0 group-hover:opacity-100 flex items-center gap-1 mx-auto text-xs font-bold"
+                                                                title="Find Similar Genes (Vector Search)"
+                                                            >
+                                                                <SearchCode size={14} />
+                                                                Find Similar
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -249,6 +284,14 @@ function App() {
                     onClose={() => setModalOpen(false)}
                 />
             )}
+
+            <SimilarityModal
+                isOpen={simModalOpen}
+                onClose={() => setSimModalOpen(false)}
+                targetGene={targetGeneSim}
+                recommendations={simRecommendations}
+                isLoading={simLoading}
+            />
         </div>
     )
 }

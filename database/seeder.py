@@ -123,6 +123,13 @@ def seed_data():
         if random.random() < 0.05: chrom = "chrX"
         if random.random() < 0.05: chrom = "chrY"
         
+        # Vector Generation (Normalized features for better cosine similarity)
+        # [Expression Level (0-1), GC Content (0-1), Sequence Complexity (0-1)]
+        expr_norm = float(scores[i]) / 100.0
+        gc_norm = float(gc_contents[i]) / 100.0
+        complexity = len(set(sequence)) / len(sequence) # Simple complexity proxy
+        vector_str = f"[{expr_norm:.4f},{gc_norm:.4f},{complexity:.4f}]"
+
         # 1. Prepare Mongo Document
         doc = {
             "experiment_id": experiment_id,
@@ -130,6 +137,7 @@ def seed_data():
             "sequence_snippet": sequence,
             "expression_score": float(scores[i]),
             "gc_content": float(gc_contents[i]),
+            "embedding": [expr_norm, gc_norm, complexity], # Also useful in Mongo?
             "metadata": {
                 "biotype": random.choice(["protein_coding", "lncRNA", "miRNA", "pseudogene"]),
                 "chromosome": chrom
@@ -138,16 +146,16 @@ def seed_data():
         }
         gene_docs.append(doc)
 
-        # 2. Prepare SQL Metadata Tuple
-        sql_gene_buffer.append((gene_symbol, experiment_id, chrom, sequence_len))
+        # 2. Prepare SQL Metadata Tuple with Vector
+        sql_gene_buffer.append((gene_symbol, experiment_id, chrom, sequence_len, vector_str))
 
     # Bulk Insert Mongo
     gene_collection.insert_many(gene_docs)
     
     # Bulk Insert SQL
-    print("Populating SQL 'gene_metadata' table...")
-    args_str = ','.join(pg_cursor.mogrify("(%s,%s,%s,%s)", x).decode('utf-8') for x in sql_gene_buffer)
-    pg_cursor.execute("INSERT INTO gene_metadata (gene_symbol, experiment_id, chromosome, sequence_length) VALUES " + args_str) 
+    print("Populating SQL 'gene_metadata' table with Vectors...")
+    args_str = ','.join(pg_cursor.mogrify("(%s,%s,%s,%s,%s)", x).decode('utf-8') for x in sql_gene_buffer)
+    pg_cursor.execute("INSERT INTO gene_metadata (gene_symbol, experiment_id, chromosome, sequence_length, embedding) VALUES " + args_str) 
 
     pg_conn.commit()
     

@@ -51,5 +51,22 @@ The project is a containerized hybrid database system featuring:
   3. **Join**: Merges the results.
 
 ## Troubleshooting
-- **Database Connection Errors**: If services fail to connect, restart with `docker-compose restart`.
 - **Frontend API Error**: Ensure backend is running on port `8000`.
+
+### 4. Redis Caching
+- Click on any row in the table to open the **Gene Detail Modal**.
+- First click: Badge says "Fetched from MongoDB" (Cache Miss).
+- Second click: Badge says "Served from Redis Cache" (Cache Hit).
+- Verify the speed difference!
+
+### 5. OLAP Analytics
+- Switch to the **"OLAP Analytics"** tab.
+- **SQL Analytics**: View the "Genes per Chromosome" bar chart (Complex Aggregation).
+- **NoSQL Analytics**: View the "GC Content Distribution" area chart (Aggregation Pipeline).
+- **Why?**: Demonstrates the system's ability to handle complex analytical workloads on both structured and unstructured data.
+
+### 6. Vector Similarity Search ("Biologically Aware" Search)
+- **Goal**: Find genes with similar properties (Expression, GC, Complexity) using Cosine Similarity.
+- **Action**: Click the "Find Similar" button on any gene row.
+- **Result**: A modal appears showing 5 recommended genes.
+- **Tech**: Uses `pgvector` HNSW index on 3D vectors `[Expression, GC, Complexity]`.

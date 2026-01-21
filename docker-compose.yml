@@ -2,8 +2,9 @@ version: '3.8'
 
 services:
   # Database 1: PostgreSQL (Structured Metadata)
+  # Augmented with pgvector for Similarity Search
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg16
     container_name: bioof_postgres
     environment:
       POSTGRES_USER: biouser
